@@ -1,0 +1,29 @@
+.container {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: 250px; 
+  background-color: #d9d9d9;
+  border-right: 1px solid #c5c5c5;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin: 5px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center; 
+  justify-content: flex-start;
+}
+
+.container .title {
+  background: linear-gradient(90deg, #4F46E5, #9333EA);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.container .subtitle {
+  color: #6366F1; /* lighter blue tone */
+  font-weight: 500;
+  margin: -20px;
+}
