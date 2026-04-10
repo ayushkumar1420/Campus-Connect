@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const sqlite3 = require('sqlite3').verbose();
+const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
@@ -10,45 +10,48 @@ app.use(express.json());
 
 const JWT_SECRET = 'super-secret-campus-key-123';
 
-// Initialize SQLite database
-const db = new sqlite3.Database('./database.sqlite', (err) => {
-  if (err) {
-    console.error('Error opening database', err);
-  } else {
-    // Create Tables
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT,
-      email TEXT UNIQUE,
-      password TEXT,
-      college_name TEXT,
-      roll_no TEXT,
-      avatar_url TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+// Connect to MongoDB
+const MONGO_URI = 'mongodb://ayushmaurya496_db_user:ayush123@ac-hjd8hbk-shard-00-00.ik7tacw.mongodb.net:27017,ac-hjd8hbk-shard-00-01.ik7tacw.mongodb.net:27017,ac-hjd8hbk-shard-00-02.ik7tacw.mongodb.net:27017/?ssl=true&replicaSet=atlas-zlfqdg-shard-0&authSource=admin&appName=Cluster0';
 
-    db.run(`CREATE TABLE IF NOT EXISTS posts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER,
-      college_name TEXT,
-      content TEXT,
-      type TEXT,
-      file_url TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    )`);
+mongoose.connect(MONGO_URI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('Error connecting to MongoDB', err));
 
-    db.run(`CREATE TABLE IF NOT EXISTS messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      sender_id INTEGER,
-      receiver_id INTEGER,
-      content TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (sender_id) REFERENCES users(id),
-      FOREIGN KEY (receiver_id) REFERENCES users(id)
-    )`);
-  }
+// Mongoose Models
+const userSchema = new mongoose.Schema({
+  name: String,
+  email: { type: String, unique: true },
+  password: { type: String, required: true },
+  college_name: String,
+  roll_no: String,
+  avatar_url: String,
+  created_at: { type: Date, default: Date.now }
 });
+
+const postSchema = new mongoose.Schema({
+  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  college_name: String,
+  content: String,
+  type: String,
+  file_url: String,
+  created_at: { type: Date, default: Date.now }
+});
+
+const messageSchema = new mongoose.Schema({
+  sender_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  receiver_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  content: String,
+  created_at: { type: Date, default: Date.now }
+});
+
+// Setting virtuals to map _id to id so frontend doesn't break
+userSchema.set('toJSON', { virtuals: true });
+postSchema.set('toJSON', { virtuals: true });
+messageSchema.set('toJSON', { virtuals: true });
+
+const User = mongoose.model('User', userSchema);
+const Post = mongoose.model('Post', postSchema);
+const Message = mongoose.model('Message', messageSchema);
 
 // Auth Middleware
 const authenticateToken = (req, res, next) => {
@@ -68,141 +71,152 @@ app.post('/api/auth/signup', async (req, res) => {
   const { name, email, password, college_name, roll_no } = req.body;
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    db.run(
-      `INSERT INTO users (name, email, password, college_name, roll_no) VALUES (?, ?, ?, ?, ?)`,
-      [name, email, hashedPassword, college_name, roll_no],
-      function (err) {
-        if (err) {
-          if (err.message.includes('UNIQUE')) {
-            return res.status(400).json({ error: 'Email already exists' });
-          }
-          return res.status(500).json({ error: 'Database error' });
-        }
-        
-        const user = { id: this.lastID, name, email, college_name, roll_no };
-        const token = jwt.sign(user, JWT_SECRET);
-        res.json({ token, user });
-      }
-    );
+    const user = new User({ name, email, password: hashedPassword, college_name, roll_no });
+    await user.save();
+    
+    const userPayload = { id: user._id.toString(), name, email, college_name, roll_no };
+    const token = jwt.sign(userPayload, JWT_SECRET);
+    res.json({ token, user: userPayload });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ error: 'Email already exists' });
+    }
     res.status(500).json({ error: error.message });
   }
 });
 
 // API: Auth Login
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
-  db.get(`SELECT * FROM users WHERE email = ?`, [email], async (err, row) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    if (!row) return res.status(400).json({ error: 'Invalid credentials' });
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ error: 'Invalid credentials' });
 
-    const validPassword = await bcrypt.compare(password, row.password);
+    const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) return res.status(400).json({ error: 'Invalid credentials' });
 
-    const aUser = { id: row.id, name: row.name, email: row.email, college_name: row.college_name, roll_no: row.roll_no, avatar_url: row.avatar_url };
-    const token = jwt.sign(aUser, JWT_SECRET);
-    res.json({ token, user: aUser });
-  });
+    const userPayload = { id: user._id.toString(), name: user.name, email: user.email, college_name: user.college_name, roll_no: user.roll_no, avatar_url: user.avatar_url };
+    const token = jwt.sign(userPayload, JWT_SECRET);
+    res.json({ token, user: userPayload });
+  } catch (error) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // API: Get Current User
-app.get('/api/auth/me', authenticateToken, (req, res) => {
-  db.get(`SELECT id, name, email, college_name, roll_no, avatar_url, created_at FROM users WHERE id = ?`, [req.user.id], (err, row) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    res.json({ user: row });
-  });
+app.get('/api/auth/me', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ user });
+  } catch (error) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // API: Get Profile Stats
-app.get('/api/profiles/stats', authenticateToken, (req, res) => {
-  db.all(`SELECT type FROM posts WHERE user_id = ?`, [req.user.id], (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    res.json({ posts: rows });
-  });
+app.get('/api/profiles/stats', authenticateToken, async (req, res) => {
+  try {
+    const posts = await Post.find({ user_id: req.user.id }).select('type');
+    res.json({ posts });
+  } catch (error) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // API: Get Posts (Feed)
-app.get('/api/posts', authenticateToken, (req, res) => {
-  const query = `
-    SELECT p.*, u.name as user_name, u.avatar_url, u.college_name as user_college
-    FROM posts p
-    JOIN users u ON p.user_id = u.id
-    WHERE p.college_name = ?
-    ORDER BY p.created_at DESC
-  `;
-  db.all(query, [req.user.college_name], (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    // Format to match old supabase structure
-    const formatted = rows.map(r => ({
-      id: r.id, user_id: r.user_id, content: r.content, type: r.type, created_at: r.created_at, college_name: r.college_name,
-      profiles: { name: r.user_name, avatar_url: r.avatar_url, college_name: r.user_college }
+app.get('/api/posts', authenticateToken, async (req, res) => {
+  try {
+    const posts = await Post.find({ college_name: req.user.college_name })
+      .populate('user_id', 'name avatar_url college_name')
+      .sort({ created_at: -1 });
+
+    const formatted = posts.map(p => ({
+      id: p._id.toString(),
+      user_id: p.user_id ? p.user_id._id.toString() : null,
+      content: p.content,
+      type: p.type,
+      created_at: p.created_at,
+      college_name: p.college_name,
+      profiles: p.user_id ? { 
+        name: p.user_id.name, 
+        avatar_url: p.user_id.avatar_url, 
+        college_name: p.user_id.college_name 
+      } : { name: 'Unknown', college_name: 'Unknown' }
     }));
+    
     res.json(formatted);
-  });
+  } catch (error) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // API: Create Post
-app.post('/api/posts', authenticateToken, (req, res) => {
+app.post('/api/posts', authenticateToken, async (req, res) => {
   const { content, type, college_name } = req.body;
-  db.run(
-    `INSERT INTO posts (user_id, college_name, content, type) VALUES (?, ?, ?, ?)`,
-    [req.user.id, college_name, content, type],
-    function (err) {
-      if (err) return res.status(500).json({ error: 'Database error' });
-      res.json({ message: 'Post created', id: this.lastID });
-    }
-  );
+  try {
+    const newPost = new Post({ user_id: req.user.id, college_name, content, type });
+    await newPost.save();
+    res.json({ message: 'Post created', id: newPost._id.toString() });
+  } catch (error) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // API: Get Peers for Messaging
-app.get('/api/peers', authenticateToken, (req, res) => {
-  db.all(
-    `SELECT id, name, college_name, roll_no, avatar_url FROM users WHERE college_name = ? AND id != ?`,
-    [req.user.college_name, req.user.id],
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: 'Database error' });
-      res.json(rows);
-    }
-  );
+app.get('/api/peers', authenticateToken, async (req, res) => {
+  try {
+    const peers = await User.find({ 
+      college_name: req.user.college_name,
+      _id: { $ne: req.user.id }
+    }).select('-password');
+    res.json(peers);
+  } catch (error) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // API: Get Target Profile
-app.get('/api/peers/:id', authenticateToken, (req, res) => {
-  db.get(`SELECT id, name, college_name, roll_no, avatar_url FROM users WHERE id = ?`, [req.params.id], (err, row) => {
-    if (err || !row) return res.status(404).json({ error: 'Not found' });
-    res.json(row);
-  });
+app.get('/api/peers/:id', authenticateToken, async (req, res) => {
+  try {
+    const peer = await User.findById(req.params.id).select('-password');
+    if (!peer) return res.status(404).json({ error: 'Not found' });
+    res.json(peer);
+  } catch (error) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // API: Get Messages with specific peer
-app.get('/api/messages/:targetId', authenticateToken, (req, res) => {
+app.get('/api/messages/:targetId', authenticateToken, async (req, res) => {
   const { targetId } = req.params;
-  db.all(
-    `SELECT * FROM messages WHERE 
-    (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
-    ORDER BY created_at ASC`,
-    [req.user.id, targetId, targetId, req.user.id],
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: 'Database error' });
-      res.json(rows);
-    }
-  );
+  try {
+    const messages = await Message.find({
+      $or: [
+        { sender_id: req.user.id, receiver_id: targetId },
+        { sender_id: targetId, receiver_id: req.user.id }
+      ]
+    }).sort({ created_at: 1 });
+    res.json(messages);
+  } catch (error) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // API: Send Message
-app.post('/api/messages', authenticateToken, (req, res) => {
+app.post('/api/messages', authenticateToken, async (req, res) => {
   const { receiver_id, content } = req.body;
-  db.run(
-    `INSERT INTO messages (sender_id, receiver_id, content) VALUES (?, ?, ?)`,
-    [req.user.id, receiver_id, content],
-    function (err) {
-      if (err) return res.status(500).json({ error: 'Database error' });
-      
-      db.get('SELECT * FROM messages WHERE id = ?', [this.lastID], (err, row) => {
-        res.json(row);
-      });
-    }
-  );
+  try {
+    const message = new Message({
+      sender_id: req.user.id,
+      receiver_id: receiver_id,
+      content: content
+    });
+    await message.save();
+    res.json(message);
+  } catch (error) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 const PORT = 5000;
