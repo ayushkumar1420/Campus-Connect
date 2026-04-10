@@ -93,7 +93,7 @@ export default function Messages() {
               className={`w-full text-left p-4 flex items-center gap-3 transition-colors hover:bg-white/5 border-b border-white/5 ${activeChat?.id === contact.id ? 'bg-indigo-500/20' : ''}`}
             >
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex-shrink-0 flex items-center justify-center text-white font-bold">
-                {contact.avatar_url ? <img src={contact.avatar_url} alt="" className="w-full h-full object-cover rounded-full"/> : contact.name?.charAt(0) || 'U'}
+                {contact.avatar_url ? <img src={contact.avatar_url} alt="" className="w-full h-full object-cover rounded-full" /> : contact.name?.charAt(0) || 'U'}
               </div>
               <div className="truncate">
                 <p className="font-medium text-slate-100 truncate">{contact.name}</p>
@@ -123,18 +123,17 @@ export default function Messages() {
               <p className="text-xs text-slate-400">Campus Chat</p>
             </div>
           </div>
-          
+
           {/* Messages List */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.map((msg, idx) => {
               const isMine = msg.sender_id === currentUser.id;
               return (
                 <div key={msg.id || idx} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${
-                    isMine 
-                      ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-br-sm' 
-                      : 'bg-slate-800 text-slate-200 rounded-bl-sm border border-slate-700/50'
-                  }`}>
+                  <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${isMine
+                    ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-br-sm'
+                    : 'bg-slate-800 text-slate-200 rounded-bl-sm border border-slate-700/50'
+                    }`}>
                     <p className="text-sm">{msg.content}</p>
                     <p className={`text-[10px] mt-1 text-right ${isMine ? 'text-indigo-200' : 'text-slate-500'}`}>
                       {msg.created_at ? formatDistanceToNow(new Date(msg.created_at), { addSuffix: true }) : 'just now'}
@@ -156,7 +155,7 @@ export default function Messages() {
                 placeholder="Type a message..."
                 className="flex-1 bg-slate-900 border border-slate-700 rounded-full pl-4 pr-12 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white placeholder-slate-500"
               />
-              <button 
+              <button
                 type="submit" disabled={!newMessage.trim()}
                 className="absolute right-1 top-1 bottom-1 w-10 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full flex items-center justify-center transition-colors disabled:opacity-50"
               >

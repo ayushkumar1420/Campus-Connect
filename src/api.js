@@ -43,7 +43,7 @@ export const api = {
       localStorage.removeItem('user');
     }
   },
-  
+
   // Custom wrappers for our specific backend to simulate supabase experience
   getPosts: async () => {
     const res = await fetch(`${API_URL}/posts`, { headers: getHeaders() });
@@ -62,7 +62,7 @@ export const api = {
   getProfileStats: async () => {
     const res = await fetch(`${API_URL}/profiles/stats`, { headers: getHeaders() });
     if (!res.ok) throw new Error('Failed to fetch stats');
-    return await res.json();  
+    return await res.json();
   },
   getPeers: async () => {
     const res = await fetch(`${API_URL}/peers`, { headers: getHeaders() });
