@@ -34,13 +34,23 @@ export const api = {
       }
       return await res.json();
     },
-    getUser: () => {
-      const userStr = localStorage.getItem('user');
-      return userStr ? JSON.parse(userStr) : null;
+    getUser: async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return null;
+      try {
+        const res = await fetch(`${API_URL}/auth/me`, { headers: getHeaders() });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.user;
+      } catch (e) {
+        return null;
+      }
+    },
+    getToken: () => {
+      return localStorage.getItem('token');
     },
     signOut: () => {
       localStorage.removeItem('token');
-      localStorage.removeItem('user');
     }
   },
 

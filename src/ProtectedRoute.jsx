@@ -7,9 +7,12 @@ export default function ProtectedRoute({ children }) {
   const [session, setSession] = useState(null);
 
   useEffect(() => {
-    const user = api.auth.getUser();
-    setSession(user);
-    setLoading(false);
+    const fetchSession = async () => {
+      const user = await api.auth.getUser();
+      setSession(user);
+      setLoading(false);
+    };
+    fetchSession();
   }, []);
 
   if (loading) return <p>Loading...</p>;

@@ -7,13 +7,16 @@ const App = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const user = api.auth.getUser();
-    setSession(user);
-    setLoading(false);
+    const fetchUser = async () => {
+      const user = await api.auth.getUser();
+      setSession(user);
+      setLoading(false);
+    };
+    fetchUser();
   }, []);
 
   if (loading) {
-    return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Loading CampusConnect...</div>;
+    return <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff' }}>Loading CampusConnect...</div>;
   }
 
   return session ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />;

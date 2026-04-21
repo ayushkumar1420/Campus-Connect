@@ -3,6 +3,7 @@ import { api } from "../api";
 import { User, Building, Hash, Calendar, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
+import "./Profile.css";
 
 export default function Profile() {
   const [profile, setProfile] = useState(null);
@@ -13,7 +14,7 @@ export default function Profile() {
   }, []);
 
   const fetchProfile = async () => {
-    const user = api.auth.getUser();
+    const user = await api.auth.getUser();
     if (!user) return;
 
     try {
@@ -34,54 +35,54 @@ export default function Profile() {
   if (!profile) return <div className="p-8 text-center text-slate-500">Loading profile...</div>;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8">
-      <header className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">My Profile</h1>
+    <div className="profile-container">
+      <header className="profile-header">
+        <h1 className="profile-title">My Profile</h1>
       </header>
       
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-3xl p-8 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10"></div>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="profile-card glass">
+        <div className="profile-blob"></div>
         
-        <div className="flex flex-col md:flex-row items-center md:items-start gap-8 relative z-10">
-          <div className="w-32 h-32 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-5xl shadow-xl shadow-indigo-500/25 border-4 border-indigo-400">
-            {profile.avatar_url ? <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover rounded-full" /> : profile.name?.charAt(0)}
+        <div className="profile-content">
+          <div className="profile-avatar">
+            {profile.avatar_url ? <img src={profile.avatar_url} alt="Avatar" /> : profile.name?.charAt(0)}
           </div>
           
-          <div className="flex-1 text-center md:text-left space-y-4">
+          <div className="profile-info">
             <div>
-              <h2 className="text-2xl font-bold text-slate-100">{profile.name}</h2>
-              <div className="flex items-center justify-center md:justify-start gap-2 text-indigo-400 mt-1">
+              <h2 className="profile-name">{profile.name}</h2>
+              <div className="profile-college">
                 <Building className="w-4 h-4" />
-                <span className="font-medium">{profile.college_name}</span>
+                <span className="profile-college-name">{profile.college_name}</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <div className="bg-slate-800/50 p-4 rounded-2xl flex items-center gap-3">
-                <Hash className="text-slate-400 w-5 h-5" />
+            <div className="profile-details-grid">
+              <div className="profile-detail-card">
+                <Hash className="profile-detail-icon" />
                 <div>
-                  <p className="text-xs text-slate-400">Roll Number</p>
-                  <p className="font-medium text-slate-200">{profile.roll_no}</p>
+                  <p className="profile-detail-label">Roll Number</p>
+                  <p className="profile-detail-value">{profile.roll_no}</p>
                 </div>
               </div>
-              <div className="bg-slate-800/50 p-4 rounded-2xl flex items-center gap-3">
-                <Mail className="text-slate-400 w-5 h-5" />
+              <div className="profile-detail-card">
+                <Mail className="profile-detail-icon" />
                 <div>
-                  <p className="text-xs text-slate-400">Email Address</p>
-                  <p className="font-medium text-slate-200">{profile.email}</p>
+                  <p className="profile-detail-label">Email Address</p>
+                  <p className="profile-detail-value">{profile.email}</p>
                 </div>
               </div>
             </div>
             
-            <div className="flex gap-4 mt-6 pt-6 border-t border-white/10">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">{stats.posts}</p>
-                <p className="text-xs text-slate-400 uppercase tracking-wider">Notes Shared</p>
+            <div className="profile-stats">
+              <div className="profile-stat-box">
+                <p className="profile-stat-number">{stats.posts}</p>
+                <p className="profile-stat-label">Notes Shared</p>
               </div>
-              <div className="w-px h-10 bg-white/10 mx-2 self-center"></div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-emerald-400">{stats.queries}</p>
-                <p className="text-xs text-slate-400 uppercase tracking-wider">Queries Posited</p>
+              <div className="profile-stat-divider"></div>
+              <div className="profile-stat-box">
+                <p className="profile-stat-number-alt">{stats.queries}</p>
+                <p className="profile-stat-label">Queries Posited</p>
               </div>
             </div>
           </div>

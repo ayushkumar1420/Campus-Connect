@@ -13,9 +13,25 @@ const JWT_SECRET = 'super-secret-campus-key-123';
 // Connect to MongoDB
 const MONGO_URI = 'mongodb://ayushmaurya496_db_user:ayush123@ac-hjd8hbk-shard-00-00.ik7tacw.mongodb.net:27017,ac-hjd8hbk-shard-00-01.ik7tacw.mongodb.net:27017,ac-hjd8hbk-shard-00-02.ik7tacw.mongodb.net:27017/?ssl=true&replicaSet=atlas-zlfqdg-shard-0&authSource=admin&appName=Cluster0';
 
-mongoose.connect(MONGO_URI)
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('Error connecting to MongoDB', err));
+mongoose.connect(MONGO_URI, {
+  serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+  socketTimeoutMS: 45000, 
+})
+.then(() => console.log('✅ Connected to MongoDB'))
+.catch(err => {
+  console.error('❌ Error connecting to MongoDB at startup:', err.message);
+  console.error('Please verify your IP is whitelisted in MongoDB Atlas or that your cluster is running.');
+  // Do not crash, keep trying or accept failure gracefully
+});
+
+// Auto-reconnect logic logging
+mongoose.connection.on('disconnected', () => {
+  console.log('⚠️ MongoDB disconnected. Attempting to reconnect...');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('❌ MongoDB runtime error:', err.message);
+});
 
 // Mongoose Models
 const userSchema = new mongoose.Schema({
