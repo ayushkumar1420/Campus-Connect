@@ -1,12 +1,21 @@
-# React + Vite
+🎓 CampusConnect
+CampusConnect is a campus-based web application designed to simplify student interaction and improve communication within a college environment. It provides a secure and user-friendly platform where students can connect, access updates, and stay informed.
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+🚀 Features
+🔐 Secure Authentication
+User signup and login system using MongoDB for safe data storage.
 
-Currently, two official plugins are available:
+📊 Personalized Dashboard
+Displays announcements, events, and messages in a clean interface.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+💬 Student Interaction
+Enables communication and collaboration among students.
 
-## Expanding the ESLint configuration
+⚡ Responsive UI
+Built with React.js and CSS for a smooth and modern experience.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+🛠️ Tech Stack
+Frontend: React.js (Vite) + CSS
+Backend: Node.js + Express.js (if applicable)
+Database: MongoDB
+Authentication: Custom / MongoDB-based auth
