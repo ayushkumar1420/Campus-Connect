@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { api } from "../api";
 import { useLocation } from "react-router-dom";
 import { Send, MessageSquare } from "lucide-react";
@@ -16,18 +16,7 @@ export default function Messages() {
 
   const initialTargetId = location.state?.targetUserId;
 
-  useEffect(() => {
-    const init = async () => {
-      const user = await api.auth.getUser();
-      if (user) {
-        setCurrentUser(user);
-        loadConversations();
-      }
-    };
-    init();
-  }, []);
-
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     try {
       const peers = await api.getPeers();
       setConversations(peers);
@@ -39,26 +28,38 @@ export default function Messages() {
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [initialTargetId]);
 
   useEffect(() => {
-    let int;
-    if (currentUser && activeChat) {
-      fetchMessages();
-      int = setInterval(fetchMessages, 2000); // Poll messages
-    }
-    return () => clearInterval(int);
-  }, [activeChat, currentUser]);
+    const init = async () => {
+      const user = await api.auth.getUser();
+      if (user) {
+        setCurrentUser(user);
+        loadConversations();
+      }
+    };
+    init();
+  }, [loadConversations]);
 
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     if (!activeChat) return;
+
     try {
       const msgs = await api.getMessages(activeChat.id);
       setMessages(msgs);
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [activeChat]);
+
+  useEffect(() => {
+    let int;
+    if (currentUser && activeChat) {
+      fetchMessages();
+      int = setInterval(fetchMessages, 2000);
+    }
+    return () => clearInterval(int);
+  }, [activeChat, currentUser, fetchMessages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

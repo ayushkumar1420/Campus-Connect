@@ -3,16 +3,14 @@ import { Link, useLocation } from "react-router-dom";
 import { Home, MessageCircle, User, LogOut, Menu, X } from "lucide-react";
 import campusLogo from "../assets/campusconnect.png";
 import { api } from "../api";
-import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import "./Sidebar.css";
 
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     api.auth.signOut();
     window.location.href = '/login';
   };

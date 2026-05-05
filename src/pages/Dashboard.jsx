@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "../api";
 import { formatDistanceToNow } from "date-fns";
-import { Send, Image as ImageIcon, FileText, HelpCircle, MessageSquare } from "lucide-react";
+import { Send, FileText, HelpCircle, MessageSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import "./Dashboard.css";
@@ -22,7 +22,6 @@ export default function Dashboard() {
       fetchPosts();
     };
     init();
-    // Simple polling for real-time feel since we dropped Supabase websockets
     const int = setInterval(fetchPosts, 5000);
     return () => clearInterval(int);
   }, []);

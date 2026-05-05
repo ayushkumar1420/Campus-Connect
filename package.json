@@ -12,7 +12,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.57.4",
     "@tailwindcss/vite": "^4.1.13",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.38.0",
@@ -32,7 +31,6 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.3.0",
-    "supabase": "^2.76.9",
     "vite": "^7.1.2"
   },
   "description": "This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.",

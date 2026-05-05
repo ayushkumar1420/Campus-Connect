@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { api } from "../api";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import campusLogo from "../assets/campusconnect.png";
 import { Mail, Lock, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import "./Auth.css";
 
 export default function Login() {
-  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -28,7 +27,6 @@ export default function Login() {
 
       localStorage.setItem("token", response.token);
 
-      // Full page reload to redirect cleanly
       window.location.href = '/dashboard';
     } catch (err) {
       setError(err.message || "Invalid credentials");

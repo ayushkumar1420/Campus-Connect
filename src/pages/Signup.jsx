@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { api } from "../api";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import campusLogo from "../assets/campusconnect.png";
 import { User, Mail, Lock, Building, Hash, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import "./Auth.css";
 
 export default function Signup() {
-  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -32,7 +31,6 @@ export default function Signup() {
         roll_no: formData.rollNo,
       });
 
-      // Save session info
       localStorage.setItem("token", response.token);
 
       alert("Signup successful!");

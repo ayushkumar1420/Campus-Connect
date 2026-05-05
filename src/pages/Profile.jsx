@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "../api";
-import { User, Building, Hash, Calendar, Mail } from "lucide-react";
+import { Building, Hash, Mail } from "lucide-react";
 import { motion } from "framer-motion";
-import { format } from "date-fns";
 import "./Profile.css";
 
 export default function Profile() {
@@ -82,7 +81,7 @@ export default function Profile() {
               <div className="profile-stat-divider"></div>
               <div className="profile-stat-box">
                 <p className="profile-stat-number-alt">{stats.queries}</p>
-                <p className="profile-stat-label">Queries Posited</p>
+                <p className="profile-stat-label">Queries Posted</p>
               </div>
             </div>
           </div>
