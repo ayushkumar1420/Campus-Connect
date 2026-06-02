@@ -2,8 +2,7 @@ const mongoose = require('mongoose');
 
 mongoose.set('strictQuery', true);
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/campusconnect';
-
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/campus_connect';
 async function connectDatabase() {
   try {
     await mongoose.connect(MONGO_URI, {
