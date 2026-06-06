@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "../api";
-import { useLocation } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Send, MessageSquare } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,14 +8,12 @@ import { useSocket } from "../hooks/useSocket";
 import "./Messages.css";
 
 export default function Messages() {
-  const [activeChat, setActiveChat] = useState(null);
+  const { userId } = useParams();
+  const navigate = useNavigate();
   const [newMessage, setNewMessage] = useState("");
-  const location = useLocation();
   const messagesEndRef = useRef(null);
   const queryClient = useQueryClient();
   const socket = useSocket();
-
-  const initialTargetId = location.state?.targetUserId;
 
   const { data: currentUser } = useQuery({
     queryKey: ['currentUser'],
@@ -27,70 +25,76 @@ export default function Messages() {
     queryFn: () => api.getPeers()
   });
 
-  const { data: messages = [] } = useQuery({
-    queryKey: ['messages', activeChat?.id],
-    queryFn: () => api.getMessages(activeChat.id),
-    enabled: !!activeChat?.id,
-    refetchInterval: false // Disabling polling
+  // Fetch target profile explicitly to fix caching/route bugs
+  const { data: targetProfile, isLoading: loadingTargetProfile } = useQuery({
+    queryKey: ['profile', userId],
+    queryFn: () => api.getUserProfile(userId),
+    enabled: !!userId,
   });
 
-  useEffect(() => {
-    if (initialTargetId && conversations.length > 0 && !activeChat) {
-      const target = conversations.find(c => c.id === initialTargetId) || { id: initialTargetId };
-      if (!target.name) {
-        api.getUserProfile(initialTargetId).then(p => {
-          setActiveChat({ id: p._id, name: p.name, avatar_url: p.avatar_url, roll_no: p.roll_no });
-        });
-      } else {
-        setActiveChat(target);
-      }
-    }
-  }, [initialTargetId, conversations, activeChat]);
+  const { data: messages = [], isLoading: loadingMessages } = useQuery({
+    queryKey: ['messages', userId],
+    queryFn: () => api.getMessages(userId),
+    enabled: !!userId,
+    refetchInterval: false // Controlled by sockets now
+  });
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !userId) return;
     
-    const handleNewMessage = (msg) => {
-      // Invalidate both conversations (for badges) and active messages
+    const handleReceiveMessage = (msg) => {
+      // If the message involves this active chat, append it directly
+      if (msg.sender_id === userId || msg.receiver_id === userId) {
+        queryClient.setQueryData(['messages', userId], (old) => [...(old || []), msg]);
+        setTimeout(() => {
+           messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
+      }
+      // Always invalidate conversations to update read badges
       queryClient.invalidateQueries(['conversations']);
-      queryClient.invalidateQueries(['messages', msg.sender_id]);
-      queryClient.invalidateQueries(['messages', msg.receiver_id]);
     };
 
-    socket.on('NEW_MESSAGE', handleNewMessage);
+    socket.on('receive_message', handleReceiveMessage);
     
     return () => {
-      socket.off('NEW_MESSAGE', handleNewMessage);
+      socket.off('receive_message', handleReceiveMessage);
     };
-  }, [socket, queryClient]);
+  }, [socket, userId, queryClient]);
 
   const sendMessageMutation = useMutation({
     mutationFn: (content) => api.sendMessage({
-      receiver_id: activeChat.id,
+      receiver_id: userId,
       content
     }),
     onSuccess: (newMsg) => {
-      queryClient.setQueryData(['messages', activeChat.id], (old) => [...(old || []), newMsg]);
+      // The socket logic handles appending it for both sender and receiver on the backend
+      // But we can eagerly append it here to be faster or rely on our own 'receive_message' listener.
+      // Since our server broadcasts 'receive_message' to both, we let the socket listener handle it.
       queryClient.invalidateQueries(['conversations']);
     }
   });
 
   const sendMessage = (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !activeChat) return;
+    if (!newMessage.trim() || !userId) return;
 
     sendMessageMutation.mutate(newMessage);
     setNewMessage("");
   };
 
+  const selectChat = (id) => {
+    navigate(`/messages/${id}`);
+    queryClient.invalidateQueries(['conversations']);
+  };
+
   return (
     <div className="messages-container">
       {/* Sidebar / Contacts */}
-      <div className={`messages-sidebar glass ${activeChat ? 'messages-sidebar-hidden' : ''}`}>
+      <div className={`messages-sidebar glass ${userId ? 'messages-sidebar-hidden' : ''}`}>
         <div className="sidebar-header">
           <h2 className="sidebar-title">Messages</h2>
         </div>
@@ -100,12 +104,8 @@ export default function Messages() {
           ) : conversations.map(contact => (
             <button
               key={contact.id}
-              onClick={() => {
-                setActiveChat(contact);
-                // Invalidate conversations to immediately clear badge on next fetch
-                queryClient.invalidateQueries(['conversations']);
-              }}
-              className={`contact-button ${activeChat?.id === contact.id ? 'contact-button-active' : ''}`}
+              onClick={() => selectChat(contact.id)}
+              className={`contact-button ${userId === contact.id ? 'contact-button-active' : ''}`}
             >
               <div className="contact-avatar">
                 {contact.avatar_url ? <img src={contact.avatar_url} alt="" /> : contact.name?.charAt(0) || 'U'}
@@ -114,7 +114,7 @@ export default function Messages() {
                 <p className="contact-name">{contact.name}</p>
                 <p className="contact-roll">{contact.roll_no}</p>
               </div>
-              {contact.unread_count > 0 && activeChat?.id !== contact.id && (
+              {contact.unread_count > 0 && userId !== contact.id && (
                 <div className="unread-badge">{contact.unread_count}</div>
               )}
             </button>
@@ -126,35 +126,44 @@ export default function Messages() {
       </div>
 
       {/* Chat Area */}
-      {activeChat ? (
-        <div className={`chat-area glass ${!activeChat ? 'chat-area-hidden' : ''}`}>
+      {userId ? (
+        <div className={`chat-area glass ${!userId ? 'chat-area-hidden' : ''}`}>
+          {/* Chat Header */}
           <div className="chat-header">
-            <button className="back-button" onClick={() => setActiveChat(null)}>
+            <button className="back-button" onClick={() => navigate('/messages')}>
               &larr; Back
             </button>
             <div className="chat-avatar">
-              {activeChat.name?.charAt(0) || 'U'}
+              {targetProfile?.avatar_url ? (
+                <img src={targetProfile.avatar_url} alt="" style={{width: '100%', height: '100%', borderRadius: '50%'}} />
+              ) : targetProfile?.name?.charAt(0) || 'U'}
             </div>
             <div>
-              <h3 className="chat-name">{activeChat.name}</h3>
-              <p className="chat-status">Campus Chat</p>
+              <h3 className="chat-name">{targetProfile?.name || 'Loading...'}</h3>
+              <p className="chat-status">{targetProfile ? 'Campus Chat' : '...'}</p>
             </div>
           </div>
 
           <div className="messages-list">
-            {messages.map((msg, idx) => {
-              const isMine = msg.sender_id === currentUser?.id;
-              return (
-                <div key={msg._id || msg.id || idx} className={`message-wrapper ${isMine ? 'message-wrapper-mine' : 'message-wrapper-other'}`}>
-                  <div className={`message-bubble ${isMine ? 'message-bubble-mine' : 'message-bubble-other'}`}>
-                    <p className="message-text">{msg.content}</p>
-                    <p className={`message-time ${isMine ? 'message-time-mine' : 'message-time-other'}`}>
-                      {msg.created_at ? formatDistanceToNow(new Date(msg.created_at), { addSuffix: true }) : 'just now'}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+            {loadingMessages ? (
+               <div className="text-center p-4 text-slate-500">Loading messages...</div>
+            ) : messages.length === 0 ? (
+               <div className="text-center p-4 text-slate-500">No messages yet. Say hi!</div>
+            ) : (
+               messages.map((msg, idx) => {
+                 const isMine = msg.sender_id === currentUser?.id;
+                 return (
+                   <div key={msg._id || msg.id || idx} className={`message-wrapper ${isMine ? 'message-wrapper-mine' : 'message-wrapper-other'}`}>
+                     <div className={`message-bubble ${isMine ? 'message-bubble-mine' : 'message-bubble-other'}`}>
+                       <p className="message-text">{msg.content}</p>
+                       <p className={`message-time ${isMine ? 'message-time-mine' : 'message-time-other'}`}>
+                         {msg.created_at ? formatDistanceToNow(new Date(msg.created_at), { addSuffix: true }) : 'just now'}
+                       </p>
+                     </div>
+                   </div>
+                 );
+               })
+            )}
             <div ref={messagesEndRef} />
           </div>
 

@@ -15,7 +15,7 @@ export function useSocket() {
     const initSocket = async () => {
       const user = await api.auth.getUser();
       if (user) {
-        socketRef.current.emit('join_room', user.id);
+        socketRef.current.emit('join_user_room', user.id);
       }
     };
 
@@ -24,18 +24,36 @@ export function useSocket() {
     // Listen to global events
     socketRef.current.on('POST_CREATED', () => {
       queryClient.invalidateQueries(['posts']);
-      queryClient.invalidateQueries(['profile']);
       queryClient.invalidateQueries(['userPosts']);
     });
 
     socketRef.current.on('POST_DELETED', () => {
       queryClient.invalidateQueries(['posts']);
-      queryClient.invalidateQueries(['profile']);
       queryClient.invalidateQueries(['userPosts']);
+    });
+
+    socketRef.current.on('POST_COUNT_UPDATED', ({ userId, postCount }) => {
+      queryClient.setQueryData(['profile', userId], (old) => {
+        if (!old) return old;
+        return { ...old, postCount };
+      });
+      // also update my profile cache
+      queryClient.setQueryData(['profile'], (old) => {
+        if (!old || old._id !== userId) return old;
+        return { ...old, postCount };
+      });
     });
 
     socketRef.current.on('PROFILE_UPDATED', () => {
       queryClient.invalidateQueries(['profile']);
+    });
+
+    socketRef.current.on('FOLLOW', ({ userId }) => {
+      queryClient.invalidateQueries(['profile', userId]);
+    });
+
+    socketRef.current.on('UNFOLLOW', ({ userId }) => {
+      queryClient.invalidateQueries(['profile', userId]);
     });
 
     return () => {
