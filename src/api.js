@@ -16,6 +16,7 @@ function getHeaders() {
 async function request(path, options = {}) {
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
+    cache: 'no-store',
     headers: {
       ...getHeaders(),
       ...options.headers,
@@ -68,7 +69,19 @@ export const api = {
     body: JSON.stringify(post),
   }),
 
+  deletePost: (postId) => request(`/posts/${postId}`, {
+    method: 'DELETE',
+  }),
+
   getProfileStats: () => request('/profiles/stats'),
+  
+  getUserProfile: (userId) => request(`/users/${userId}`),
+  
+  getUserPosts: (userId) => request(`/users/${userId}/posts`),
+  
+  followUser: (userId) => request(`/users/${userId}/follow`, {
+    method: 'POST'
+  }),
 
   getPeers: () => request('/peers'),
 

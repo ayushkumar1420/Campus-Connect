@@ -2,9 +2,13 @@ import { useEffect, useState } from 'react';
 import { api } from './api';
 import { Navigate } from 'react-router-dom';
 
+import { useSocket } from './hooks/useSocket';
+
 const App = () => {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  useSocket();
 
   useEffect(() => {
     const fetchUser = async () => {

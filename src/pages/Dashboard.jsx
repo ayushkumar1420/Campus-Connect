@@ -1,63 +1,111 @@
 import { useState, useEffect } from "react";
 import { api } from "../api";
 import { formatDistanceToNow } from "date-fns";
-import { Send, FileText, HelpCircle, MessageSquare } from "lucide-react";
+import { Send, FileText, HelpCircle, MessageSquare, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import toast from "react-hot-toast";
 import "./Dashboard.css";
 
 export default function Dashboard() {
-  const [posts, setPosts] = useState([]);
   const [newPost, setNewPost] = useState("");
   const [postType, setPostType] = useState("general");
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const [currentUser, setCurrentUser] = useState(null);
+  const { data: currentUser } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => api.auth.getUser()
+  });
 
-  useEffect(() => {
-    const init = async () => {
-      const user = await api.auth.getUser();
-      setCurrentUser(user);
-      fetchPosts();
-    };
-    init();
-    const int = setInterval(fetchPosts, 5000);
-    return () => clearInterval(int);
-  }, []);
+  const { data: posts = [], isLoading: loadingPosts } = useQuery({
+    queryKey: ['posts'],
+    queryFn: () => api.getPosts()
+  });
 
-  const fetchPosts = async () => {
-    try {
-      const data = await api.getPosts();
-      setPosts(data);
-    } catch (e) {
-      console.error(e);
+  const createPostMutation = useMutation({
+    mutationFn: (newPostData) => api.createPost(newPostData),
+    onMutate: async (newPostData) => {
+      await queryClient.cancelQueries(['posts']);
+      const previousPosts = queryClient.getQueryData(['posts']);
+      queryClient.setQueryData(['posts'], (old) => {
+        const tempPost = {
+          id: Math.random().toString(),
+          content: newPostData.content,
+          type: newPostData.type,
+          created_at: new Date().toISOString(),
+          user_id: currentUser.id,
+          profiles: {
+            name: currentUser.name,
+            avatar_url: currentUser.avatar_url,
+            college_name: currentUser.college_name,
+          }
+        };
+        return [tempPost, ...(old || [])];
+      });
+      return { previousPosts };
+    },
+    onError: (err, newPostData, context) => {
+      queryClient.setQueryData(['posts'], context.previousPosts);
+      toast.error('Failed to create post');
+    },
+    onSuccess: () => {
+      toast.success('Post created successfully!');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries(['posts']);
     }
-  };
+  });
 
-  const handlePost = async (e) => {
+  const deletePostMutation = useMutation({
+    mutationFn: (postId) => api.deletePost(postId),
+    onMutate: async (postId) => {
+      await queryClient.cancelQueries(['posts']);
+      const previousPosts = queryClient.getQueryData(['posts']);
+      queryClient.setQueryData(['posts'], (old) => old.filter(p => p.id !== postId));
+      return { previousPosts };
+    },
+    onError: (err, postId, context) => {
+      queryClient.setQueryData(['posts'], context.previousPosts);
+      toast.error('Failed to delete post');
+    },
+    onSuccess: () => {
+      toast.success('Post deleted successfully');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries(['posts']);
+    }
+  });
+
+  const handlePost = (e) => {
     e.preventDefault();
     if (!newPost.trim() || !currentUser) return;
-
-    setLoading(true);
     
-    try {
-      await api.createPost({
-        content: newPost,
-        type: postType,
-        college_name: currentUser.college_name
-      });
-      setNewPost("");
-      fetchPosts();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
+    createPostMutation.mutate({
+      content: newPost,
+      type: postType,
+      college_name: currentUser.college_name
+    });
+    setNewPost("");
+  };
+
+  const handleDelete = (postId) => {
+    if (window.confirm("Are you sure you want to delete this post?")) {
+      deletePostMutation.mutate(postId);
     }
   };
 
   const startDM = (userId) => {
     navigate("/messages", { state: { targetUserId: userId } });
+  };
+
+  const goToProfile = (userId) => {
+    if (userId === currentUser?.id) {
+      navigate('/profile');
+    } else {
+      navigate(`/profile/${userId}`);
+    }
   };
 
   return (
@@ -99,7 +147,7 @@ export default function Dashboard() {
             </div>
             
             <button 
-              type="submit" disabled={loading || !newPost.trim()}
+              type="submit" disabled={createPostMutation.isLoading || !newPost.trim()}
               className="post-submit-btn"
             >
               Post <Send className="w-4 h-4" />
@@ -110,56 +158,70 @@ export default function Dashboard() {
 
       {/* Feed List */}
       <div className="feed-list">
-        <AnimatePresence>
-          {posts.map((post) => (
-            <motion.div
-              key={post.id}
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
-              className="feed-item glass"
-              style={{ 
-                borderLeftColor: 
-                  post.type === 'note' ? '#10b981' : 
-                  post.type === 'query' ? '#f59e0b' : '#6366f1' 
-              }}
-            >
-              <div className="feed-item-header">
-                <div className="feed-item-user-info">
-                  <div className="feed-avatar">
-                    {post.profiles?.avatar_url ? (
-                      <img src={post.profiles.avatar_url} alt="" />
-                    ) : (
-                      post.profiles?.name?.charAt(0).toUpperCase() || 'U'
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="feed-user-name">{post.profiles?.name}</h3>
-                    <div className="feed-meta">
-                      <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
-                      <span>•</span>
-                      <span className="feed-meta-type">{post.type}</span>
+        {loadingPosts ? (
+          <div className="p-8 text-center text-slate-500">Loading posts...</div>
+        ) : (
+          <AnimatePresence>
+            {posts.map((post) => (
+              <motion.div
+                key={post.id}
+                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+                className="feed-item glass"
+                style={{ 
+                  borderLeftColor: 
+                    post.type === 'note' ? '#10b981' : 
+                    post.type === 'query' ? '#f59e0b' : '#6366f1' 
+                }}
+              >
+                <div className="feed-item-header">
+                  <div className="feed-item-user-info" onClick={() => goToProfile(post.user_id)} style={{ cursor: 'pointer' }}>
+                    <div className="feed-avatar">
+                      {post.profiles?.avatar_url ? (
+                        <img src={post.profiles.avatar_url} alt="" />
+                      ) : (
+                        post.profiles?.name?.charAt(0).toUpperCase() || 'U'
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="feed-user-name hover:underline">{post.profiles?.name}</h3>
+                      <div className="feed-meta">
+                        <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
+                        <span>•</span>
+                        <span className="feed-meta-type">{post.type}</span>
+                      </div>
                     </div>
                   </div>
+                  
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    {currentUser?.id !== post.user_id ? (
+                      <button 
+                        onClick={() => startDM(post.user_id)}
+                        className="feed-action-btn"
+                      >
+                        <MessageSquare className="w-5 h-5" />
+                        <span className="tooltip-text">Message</span>
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => handleDelete(post.id)}
+                        className="feed-action-btn text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                        <span className="tooltip-text">Delete</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
-                
-                {currentUser?.id !== post.user_id && (
-                  <button 
-                    onClick={() => startDM(post.user_id)}
-                    className="feed-action-btn"
-                  >
-                    <MessageSquare className="w-5 h-5" />
-                    <span className="tooltip-text">Message</span>
-                  </button>
-                )}
-              </div>
 
-              <div className="feed-content-text">
-                {post.content}
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+                <div className="feed-content-text">
+                  {post.content}
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        )}
         
-        {posts.length === 0 && (
+        {!loadingPosts && posts.length === 0 && (
           <div className="empty-feed">
             <MessageSquare className="empty-feed-icon" />
             <p>No posts yet. Be the first to break the ice!</p>

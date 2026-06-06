@@ -38,25 +38,17 @@ campus-connect/
 └── README.md
 
 ⚙️ Installation & Setup
-
 Clone the repository
-
 git clone https://github.com/your-username/campusconnect.git
 
 Navigate to project folder
-
 cd campusconnect
-
 Install dependencies
-
 npm install
 
 Start the development server
-
 npm run dev
-
 Open in browser
-
 http://localhost:5173
 
 🔄 How It Works
